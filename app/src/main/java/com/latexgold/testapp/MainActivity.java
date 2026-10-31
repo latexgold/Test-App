@@ -21,7 +21,8 @@ import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
@@ -40,7 +41,8 @@ public class MainActivity extends Activity {
     private boolean isOn;
     private boolean cameraAvailable;
     private boolean callbackRegistered;
-    private Button powerButton;
+    private FrameLayout powerButton;
+    private ImageView powerIcon;
     private TextView statusView;
     private TextView timerView;
     private TextView intensityValue;
@@ -119,7 +121,7 @@ public class MainActivity extends Activity {
     private void buildUi() {
         boolean dark = prefs.getBoolean("dark_theme", true);
         final int bg = dark ? Color.rgb(10, 18, 32) : Color.rgb(242, 246, 250);
-        final int card = dark ? Color.rgb(20, 31, 49) : Color.WHITE;
+        final int surface = dark ? Color.rgb(20, 31, 49) : Color.WHITE;
         final int fg = dark ? Color.rgb(240, 245, 251) : Color.rgb(23, 35, 52);
         final int muted = dark ? Color.rgb(157, 174, 195) : Color.rgb(94, 111, 131);
         getWindow().setStatusBarColor(bg);
@@ -131,72 +133,87 @@ public class MainActivity extends Activity {
         scroll.setBackgroundColor(bg);
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(24), dp(20), dp(24), dp(28));
+        page.setPadding(dp(22), dp(18), dp(22), dp(26));
         scroll.addView(page);
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView icon = new TextView(this);
-        icon.setText("⚡"); icon.setTextSize(24); icon.setGravity(Gravity.CENTER);
-        icon.setTextColor(Color.rgb(18, 29, 44));
-        icon.setBackground(round(ACCENT, dp(16)));
-        header.addView(icon, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        LinearLayout titleBox = new LinearLayout(this);
-        titleBox.setOrientation(LinearLayout.VERTICAL);
-        titleBox.setPadding(dp(14), 0, 0, 0);
-        TextView title = label("Torch", 27, fg, true);
-        TextView subtitle = label("A little light, right when you need it.", 14, muted, false);
-        titleBox.addView(title); titleBox.addView(subtitle);
-        header.addView(titleBox, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        TextView brandMark = label("⚡", 23, Color.rgb(20, 31, 47), true);
+        brandMark.setGravity(Gravity.CENTER);
+        brandMark.setBackground(round(ACCENT, dp(16)));
+        header.addView(brandMark, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        LinearLayout brand = new LinearLayout(this);
+        brand.setOrientation(LinearLayout.VERTICAL);
+        brand.setPadding(dp(13), 0, 0, 0);
+        brand.addView(label("Torch", 25, fg, true));
+        brand.addView(label("Simple light. One tap.", 14, muted, false));
+        header.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         TextView version = label("1.1", 12, muted, true);
         version.setPadding(dp(10), dp(6), dp(10), dp(6));
-        version.setBackground(round(card, dp(20)));
+        version.setBackground(round(surface, dp(20)));
         header.addView(version);
         page.addView(header);
 
-        LinearLayout hero = card(card);
-        hero.setGravity(Gravity.CENTER);
+        LinearLayout hero = card(surface);
         hero.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams heroLp = new LinearLayout.LayoutParams(-1, dp(330));
-        heroLp.topMargin = dp(26);
+        hero.setGravity(Gravity.CENTER_HORIZONTAL);
+        hero.setPadding(dp(20), dp(24), dp(20), dp(22));
+        LinearLayout.LayoutParams heroLp = new LinearLayout.LayoutParams(-1, -2);
+        heroLp.topMargin = dp(22);
         page.addView(hero, heroLp);
 
-        statusView = label("READY", 13, muted, true);
-        statusView.setLetterSpacing(.12f);
+        TextView statusPill = label("READY WHEN YOU ARE", 12, muted, true);
+        statusPill.setLetterSpacing(.08f);
+        statusPill.setGravity(Gravity.CENTER);
+        statusPill.setPadding(dp(13), dp(9), dp(13), dp(9));
+        statusPill.setBackground(round(dark ? Color.rgb(31, 46, 66) : Color.rgb(232, 238, 245), dp(24)));
+        statusView = statusPill;
         hero.addView(statusView);
-        powerButton = new Button(this);
-        powerButton.setText("⏻");
-        powerButton.setTextSize(54);
-        powerButton.setTextColor(Color.rgb(31, 38, 48));
-        powerButton.setAllCaps(false);
-        powerButton.setElevation(dp(8));
-        powerButton.setBackground(round(ACCENT, 1000));
-        powerButton.setContentDescription("Turn flashlight on");
+
+        powerButton = new FrameLayout(this);
+        powerButton.setFocusable(true);
+        powerButton.setClickable(true);
+        powerButton.setElevation(dp(7));
+        powerIcon = new ImageView(this);
+        powerIcon.setImageResource(R.drawable.ic_flash_off);
+        powerIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        powerIcon.setContentDescription(null);
+        FrameLayout.LayoutParams iconLp = new FrameLayout.LayoutParams(dp(62), dp(62), Gravity.CENTER);
+        powerButton.addView(powerIcon, iconLp);
         powerButton.setOnClickListener(v -> {
             if (prefs.getBoolean("haptics", true)) v.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             toggleTorch();
         });
-        LinearLayout.LayoutParams powerLp = new LinearLayout.LayoutParams(dp(152), dp(152));
-        powerLp.topMargin = dp(22); powerLp.bottomMargin = dp(18);
+        LinearLayout.LayoutParams powerLp = new LinearLayout.LayoutParams(dp(142), dp(142));
+        powerLp.topMargin = dp(22);
+        powerLp.bottomMargin = dp(15);
         hero.addView(powerButton, powerLp);
-        timerView = label("Tap to turn on", 15, muted, false);
-        hero.addView(timerView);
+
+        TextView instruction = label("Tap to turn on", 16, fg, true);
+        instruction.setGravity(Gravity.CENTER);
+        hero.addView(instruction);
+        timerView = label("Your flashlight is ready", 14, muted, false);
+        timerView.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams timerLp = new LinearLayout.LayoutParams(-1, -2);
+        timerLp.topMargin = dp(6);
+        hero.addView(timerView, timerLp);
 
         TextView settingsTitle = label("Quick settings", 19, fg, true);
-        LinearLayout.LayoutParams stLp = new LinearLayout.LayoutParams(-1, -2);
-        stLp.topMargin = dp(26); stLp.bottomMargin = dp(12);
-        page.addView(settingsTitle, stLp);
+        LinearLayout.LayoutParams settingsTitleLp = new LinearLayout.LayoutParams(-1, -2);
+        settingsTitleLp.topMargin = dp(24);
+        settingsTitleLp.bottomMargin = dp(10);
+        page.addView(settingsTitle, settingsTitleLp);
 
-        LinearLayout settings = card(card);
+        LinearLayout settings = card(surface);
         settings.setOrientation(LinearLayout.VERTICAL);
         page.addView(settings);
 
-        TextView autoOff = label("Auto-off · " + autoOffLabel(prefs.getInt("auto_off", 10)), 16, fg, true);
+        TextView autoOff = label("Auto-off timer     " + autoOffLabel(prefs.getInt("auto_off", 10)), 15, fg, true);
         autoOff.setGravity(Gravity.CENTER_VERTICAL);
-        autoOff.setPadding(dp(16), dp(17), dp(16), dp(17));
+        autoOff.setPadding(dp(16), 0, dp(16), 0);
         autoOff.setContentDescription("Auto-off timer. Tap to change.");
         autoOff.setOnClickListener(v -> chooseAutoOff());
-        settings.addView(autoOff, new LinearLayout.LayoutParams(-1, dp(58)));
+        settings.addView(autoOff, new LinearLayout.LayoutParams(-1, dp(56)));
         divider(settings, dark);
 
         LinearLayout intensityRow = new LinearLayout(this);
@@ -204,8 +221,7 @@ public class MainActivity extends Activity {
         intensityRow.setPadding(dp(16), dp(12), dp(16), dp(8));
         LinearLayout intensityHead = new LinearLayout(this);
         intensityHead.setGravity(Gravity.CENTER_VERTICAL);
-        TextView intensityLabel = label("Brightness", 16, fg, true);
-        intensityHead.addView(intensityLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        intensityHead.addView(label("Brightness", 15, fg, true), new LinearLayout.LayoutParams(0, -2, 1));
         intensityValue = label("", 14, muted, true);
         intensityHead.addView(intensityValue);
         intensityRow.addView(intensityHead);
@@ -237,32 +253,31 @@ public class MainActivity extends Activity {
         divider(settings, dark);
         addSwitch(settings, "Haptic feedback", "A small vibration on tap", "haptics", true, fg, muted);
 
-        Button appearance = new Button(this);
-        appearance.setText("Appearance: " + (dark ? "Dark" : "Light"));
-        appearance.setTextSize(15);
-        appearance.setAllCaps(false);
-        appearance.setTextColor(fg);
-        appearance.setBackground(round(card, dp(16)));
+        TextView appearance = label("Appearance     " + (dark ? "Dark" : "Light") + "     ›", 15, fg, true);
+        appearance.setGravity(Gravity.CENTER_VERTICAL);
+        appearance.setPadding(dp(16), 0, dp(16), 0);
+        appearance.setBackground(round(surface, dp(16)));
         appearance.setOnClickListener(v -> chooseAppearance());
         LinearLayout.LayoutParams appearanceLp = new LinearLayout.LayoutParams(-1, dp(54));
-        appearanceLp.topMargin = dp(14);
+        appearanceLp.topMargin = dp(12);
         page.addView(appearance, appearanceLp);
 
-        TextView footer = label("Flash control uses your phone’s camera permission. Brightness levels depend on your device.", 13, muted, false);
+        TextView footer = label("Uses camera permission to control the built-in flash. Brightness depends on your device.", 13, muted, false);
         footer.setGravity(Gravity.CENTER);
-        footer.setPadding(dp(12), dp(18), dp(12), dp(8));
+        footer.setPadding(dp(10), dp(16), dp(10), dp(4));
         page.addView(footer);
         setContentView(scroll);
         updateIntensityLabel();
+        renderState();
     }
 
     private void addSwitch(LinearLayout parent, String title, String detail, String key, boolean defaultValue, int fg, int muted) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(16), dp(10), dp(14), dp(10));
+        row.setPadding(dp(16), dp(8), dp(14), dp(8));
         LinearLayout words = new LinearLayout(this);
         words.setOrientation(LinearLayout.VERTICAL);
-        words.addView(label(title, 16, fg, true));
+        words.addView(label(title, 15, fg, true));
         words.addView(label(detail, 13, muted, false));
         row.addView(words, new LinearLayout.LayoutParams(0, -2, 1));
         Switch toggle = new Switch(this);
@@ -272,10 +287,8 @@ public class MainActivity extends Activity {
         toggle.setOnCheckedChangeListener((button, checked) -> {
             prefs.edit().putBoolean(key, checked).apply();
             if ("keep_awake".equals(key)) applyKeepScreenOn();
-            if ("off_when_leaving".equals(key) && checked && !isOn) cancelTimer();
-            if ("haptics".equals(key) && checked) button.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
         });
-        parent.addView(row, new LinearLayout.LayoutParams(-1, dp(70)));
+        parent.addView(row, new LinearLayout.LayoutParams(-1, dp(68)));
     }
 
     private void chooseAutoOff() {
@@ -397,27 +410,38 @@ public class MainActivity extends Activity {
     private void cancelTimer() {
         handler.removeCallbacks(timerTick);
         offAtElapsed = 0;
-        if (timerView != null && !isOn) timerView.setText("Tap to turn on");
+        if (timerView != null && !isOn) timerView.setText("Your flashlight is ready");
     }
 
     private void renderState() {
-        if (powerButton == null || statusView == null) return;
+        if (powerButton == null || statusView == null || timerView == null) return;
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            powerButton.setEnabled(true); powerButton.setText("⏻"); powerButton.setContentDescription("Grant camera permission and turn flashlight on");
-            statusView.setText("PERMISSION NEEDED"); timerView.setText("Tap to allow camera access");
+            powerButton.setEnabled(true);
+            powerButton.setContentDescription("Grant camera permission and turn flashlight on");
+            powerIcon.setImageResource(R.drawable.ic_flash_off);
+            statusView.setText("PERMISSION NEEDED");
+            timerView.setText("Tap to allow camera access");
         } else if (cameraId == null) {
-            powerButton.setEnabled(false); statusView.setText("NO FLASHLIGHT FOUND"); timerView.setText("This device has no rear flash");
+            powerButton.setEnabled(false);
+            powerButton.setContentDescription("No flashlight available");
+            powerIcon.setImageResource(R.drawable.ic_flash_off);
+            statusView.setText("NO FLASHLIGHT FOUND");
+            timerView.setText("This device has no rear flash");
         } else if (!cameraAvailable) {
-            powerButton.setEnabled(false); statusView.setText("TEMPORARILY UNAVAILABLE"); timerView.setText("Try again in a moment");
+            powerButton.setEnabled(false);
+            powerButton.setContentDescription("Flashlight temporarily unavailable");
+            powerIcon.setImageResource(R.drawable.ic_flash_off);
+            statusView.setText("TEMPORARILY UNAVAILABLE");
+            timerView.setText("Try again in a moment");
         } else {
             powerButton.setEnabled(true);
-            powerButton.setText(isOn ? "Ⅱ" : "⏻");
             powerButton.setContentDescription(isOn ? "Turn flashlight off" : "Turn flashlight on");
+            powerIcon.setImageResource(isOn ? R.drawable.ic_flash_on : R.drawable.ic_flash_off);
             statusView.setText(isOn ? "TORCH IS ON" : "READY WHEN YOU ARE");
-            if (!isOn) timerView.setText("Tap to turn on");
+            if (!isOn) timerView.setText("Your flashlight is ready");
             else if (offAtElapsed == 0) timerView.setText("Tap to turn off · no timer");
         }
-        powerButton.setBackground(round(isOn ? Color.rgb(255, 214, 130) : ACCENT, 1000));
+        powerButton.setBackground(round(isOn ? Color.rgb(255, 214, 130) : ACCENT, dp(1000)));
     }
 
     private void updateIntensityLabel() {
