@@ -58,9 +58,12 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         resumed = true;
-        if (cameraManager != null && !callbackRegistered) {
-            cameraManager.registerTorchCallback(torchCallback, mainHandler);
-            callbackRegistered = true;
+        if (hasCameraPermission()) {
+            registerTorchCallback();
+        } else {
+            cameraId = null;
+            cameraAvailable = false;
+            isOn = false;
         }
         refreshFlashCamera();
     }
@@ -68,21 +71,40 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         resumed = false;
-        // Turn off while this screen is leaving the foreground, including app switching.
-        if (isOn && cameraManager != null && cameraId != null) {
+        // Turn off while this screen leaves the foreground, including app switching.
+        if (isOn && cameraManager != null && cameraId != null && hasCameraPermission()) {
             try {
                 cameraManager.setTorchMode(cameraId, false);
-                isOn = false;
             } catch (CameraAccessException | IllegalArgumentException | SecurityException ignored) {
-                // The system callback remains the source of truth if shutdown fails.
+                // Torch state is refreshed from the system callback on the next resume.
             }
         }
+        // Never retain a stale local ON state across a pause; onResume refreshes it.
+        isOn = false;
+        unregisterTorchCallback();
+        super.onPause();
+    }
+
+    private boolean hasCameraPermission() {
+        return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void registerTorchCallback() {
+        if (cameraManager != null && !callbackRegistered && hasCameraPermission()) {
+            try {
+                cameraManager.registerTorchCallback(torchCallback, mainHandler);
+                callbackRegistered = true;
+            } catch (SecurityException ignored) {
+                cameraAvailable = false;
+            }
+        }
+    }
+
+    private void unregisterTorchCallback() {
         if (cameraManager != null && callbackRegistered) {
             cameraManager.unregisterTorchCallback(torchCallback);
             callbackRegistered = false;
         }
-        updateButton();
-        super.onPause();
     }
 
     private void buildUi() {
@@ -105,6 +127,14 @@ public class MainActivity extends Activity {
         if (cameraManager == null) {
             cameraId = null;
             cameraAvailable = false;
+            updateButton();
+            return;
+        }
+        // Camera metadata access may throw before the user grants runtime permission.
+        if (!hasCameraPermission()) {
+            cameraId = null;
+            cameraAvailable = false;
+            isOn = false;
             updateButton();
             return;
         }
@@ -138,6 +168,10 @@ public class MainActivity extends Activity {
     }
 
     private void toggleFlashlight() {
+        if (!hasCameraPermission()) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
+            return;
+        }
         if (cameraId == null) {
             refreshFlashCamera();
             if (cameraId == null) {
@@ -149,15 +183,11 @@ public class MainActivity extends Activity {
             Toast.makeText(this, "Flashlight is temporarily unavailable", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
-            return;
-        }
         setFlashlight(!isOn);
     }
 
     private void setFlashlight(boolean turnOn) {
-        if (!resumed || cameraManager == null || cameraId == null) {
+        if (!resumed || cameraManager == null || cameraId == null || !hasCameraPermission()) {
             return;
         }
         try {
@@ -165,7 +195,7 @@ public class MainActivity extends Activity {
             isOn = turnOn;
             updateButton();
         } catch (CameraAccessException | IllegalArgumentException | SecurityException e) {
-            // Do not leave a stale "Turn Off" label after an unsuccessful request.
+            // Avoid displaying stale ON after an unsuccessful request to turn it off.
             if (!turnOn) {
                 isOn = false;
             }
@@ -178,7 +208,11 @@ public class MainActivity extends Activity {
         if (toggleButton == null) {
             return;
         }
-        if (cameraId == null) {
+        if (!hasCameraPermission()) {
+            // Keep the single button available so its tap can request permission.
+            toggleButton.setEnabled(true);
+            toggleButton.setText("Turn On");
+        } else if (cameraId == null) {
             toggleButton.setEnabled(false);
             toggleButton.setText("No flashlight available");
         } else if (!cameraAvailable) {
@@ -198,10 +232,12 @@ public class MainActivity extends Activity {
         }
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             if (resumed) {
+                registerTorchCallback();
                 refreshFlashCamera();
                 setFlashlight(true);
             }
         } else {
+            updateButton();
             Toast.makeText(this, "Camera permission is required for the flashlight", Toast.LENGTH_LONG).show();
         }
     }
