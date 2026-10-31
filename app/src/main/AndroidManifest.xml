@@ -4,7 +4,8 @@
 
     <application
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
-        android:label="Flashlight"
+        android:label="Torch"
+        android:icon="@drawable/ic_torch"
         android:allowBackup="false"
         android:supportsRtl="true">
         <activity
